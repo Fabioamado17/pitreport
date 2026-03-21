@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "402888703568",
+    "firebase_url": "https://pit-report-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "pit-report",
+    "storage_bucket": "pit-report.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:402888703568:android:e9c105dd73839db5909b55",
+        "android_client_info": {
+          "package_name": "com.example.pitreport"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZHa584oDWakPOCn_-bErZ_lgBbgy_78g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
