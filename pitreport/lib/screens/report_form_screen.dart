@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:flutter_compass/flutter_compass.dart';
+import 'package:noise_meter/noise_meter.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/report.dart';
@@ -21,6 +23,7 @@ const List<String> kCategories = [
   'Vandalismo',
   'Sinalização',
   'Espaços verdes',
+  'Poluição Sonora',
   'Outro',
 ];
 
@@ -67,6 +70,13 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   bool _submitting = false;
   StreamSubscription<CompassEvent>? _compassSub;
 
+  // Poluição Sonora
+  final NoiseMeter _noiseMeter = NoiseMeter();
+  StreamSubscription<NoiseReading>? _noiseSub;
+  double? _decibelLevel;
+  double? _maxDecibelLevel;
+  bool _isRecording = false;
+
   @override
   void initState() {
     super.initState();
@@ -86,11 +96,56 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   @override
   void dispose() {
     _compassSub?.cancel();
+    _noiseSub?.cancel();
     _titleController.dispose();
     _descriptionController.dispose();
     _titleFocusNode.dispose();
     _descriptionFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _startNoiseMeasure() async {
+    final status = await Permission.microphone.request();
+    if (!status.isGranted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Permissão do microfone negada.')),
+        );
+      }
+      return;
+    }
+    setState(() {
+      _decibelLevel = null;
+      _maxDecibelLevel = null;
+      _isRecording = true;
+    });
+    _noiseSub = _noiseMeter.noise.listen(
+      (NoiseReading reading) {
+        if (!mounted) return;
+        setState(() {
+          _decibelLevel = reading.meanDecibel;
+          if (_maxDecibelLevel == null ||
+              reading.maxDecibel > _maxDecibelLevel!) {
+            _maxDecibelLevel = reading.maxDecibel;
+          }
+        });
+      },
+      onError: (_) => _stopNoiseMeasure(),
+    );
+  }
+
+  void _stopNoiseMeasure() {
+    _noiseSub?.cancel();
+    _noiseSub = null;
+    if (mounted) setState(() => _isRecording = false);
+  }
+
+  Color _decibelColor(double db) {
+    if (db < 50) return Colors.greenAccent;
+    if (db < 70) return Colors.yellowAccent;
+    if (db < 85) return kOrange;
+    return Colors.redAccent;
   }
 
   String _degreesToLabel(double degrees) {
@@ -269,6 +324,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
         userId: user.uid,
         heading: _heading,
         headingLabel: _headingLabel,
+        decibelLevel: _selectedCategory == 'Poluição Sonora' ? _decibelLevel : null,
       );
 
       await _firestoreService.createReport(report);
@@ -301,13 +357,16 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomPadding),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
               // Localização — primeiro campo
               _sectionLabel('Localização'),
               const SizedBox(height: 4),
@@ -482,10 +541,87 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                     items: kCategories
                         .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                         .toList(),
-                    onChanged: (v) => setState(() => _selectedCategory = v!),
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() => _selectedCategory = v);
+                      if (v == 'Poluição Sonora') {
+                        _startNoiseMeasure();
+                      } else {
+                        _stopNoiseMeasure();
+                      }
+                    },
                   ),
                 ),
               ),
+              // Widget de Poluição Sonora — visível só quando essa categoria está selecionada
+              if (_selectedCategory == 'Poluição Sonora') ...[
+                const SizedBox(height: 12),
+                _sectionLabel('Nível de Ruído'),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.07),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white30),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isRecording ? Icons.mic : Icons.mic_off,
+                        color: _isRecording ? kOrange : Colors.white38,
+                        size: 32,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _decibelLevel != null
+                                  ? '${_decibelLevel!.toStringAsFixed(1)} dB'
+                                  : '-- dB',
+                              style: TextStyle(
+                                color: _decibelLevel != null
+                                    ? _decibelColor(_decibelLevel!)
+                                    : Colors.white38,
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (_maxDecibelLevel != null)
+                              Text(
+                                'Pico: ${_maxDecibelLevel!.toStringAsFixed(1)} dB',
+                                style: const TextStyle(
+                                    color: Colors.white54, fontSize: 12),
+                              ),
+                            Text(
+                              _isRecording ? 'A medir...' : 'Microfone inativo',
+                              style: const TextStyle(
+                                  color: Colors.white38, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (!_isRecording)
+                        TextButton.icon(
+                          onPressed: _startNoiseMeasure,
+                          icon: const Icon(Icons.mic, color: kOrange, size: 18),
+                          label: const Text('Medir',
+                              style: TextStyle(color: kOrange)),
+                        ),
+                      if (_isRecording)
+                        TextButton.icon(
+                          onPressed: _stopNoiseMeasure,
+                          icon: const Icon(Icons.stop, color: Colors.white54,
+                              size: 18),
+                          label: const Text('Parar',
+                              style: TextStyle(color: Colors.white54)),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
 
               // Título
@@ -519,32 +655,39 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Botão submeter
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _submitting ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kOrange,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: _submitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Submeter Denúncia',
-                          style: TextStyle(fontSize: 16)),
+            ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+          // Botão fixo no fundo
+          Container(
+            color: kNavyBlue,
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + bottomPadding),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _submitting ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kOrange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                child: _submitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Submeter Denúncia',
+                        style: TextStyle(fontSize: 16)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

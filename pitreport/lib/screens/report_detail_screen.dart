@@ -4,6 +4,20 @@ import 'package:intl/intl.dart';
 import '../models/report.dart';
 import '../theme.dart';
 
+Color _decibelColor(double db) {
+  if (db < 50) return Colors.greenAccent;
+  if (db < 70) return Colors.yellowAccent;
+  if (db < 85) return kOrange;
+  return Colors.redAccent;
+}
+
+String _decibelLabel(double db) {
+  if (db < 50) return 'Ambiente silencioso';
+  if (db < 70) return 'Ruído moderado';
+  if (db < 85) return 'Ruído elevado';
+  return 'Ruído muito elevado';
+}
+
 class ReportDetailScreen extends StatelessWidget {
   final Report report;
   const ReportDetailScreen({super.key, required this.report});
@@ -84,6 +98,46 @@ class ReportDetailScreen extends StatelessWidget {
           const SizedBox(height: 4),
           _InfoRow(icon: Icons.calendar_today_outlined, text: dateStr),
           const SizedBox(height: 20),
+
+          // Nível de Ruído — só para categoria Poluição Sonora
+          if (report.category == 'Poluição Sonora' &&
+              report.decibelLevel != null) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white30),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.graphic_eq,
+                      color: _decibelColor(report.decibelLevel!), size: 32),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${report.decibelLevel!.toStringAsFixed(1)} dB',
+                        style: TextStyle(
+                          color: _decibelColor(report.decibelLevel!),
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        _decibelLabel(report.decibelLevel!),
+                        style: const TextStyle(
+                            color: Colors.white54, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
 
           // Fotografias
           const Text(

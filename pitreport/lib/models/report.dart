@@ -15,6 +15,7 @@ class Report {
   final double? heading;
   final String headingLabel;
   final List<Map<String, dynamic>> photoMetadata;
+  final double? decibelLevel;
 
   Report({
     required this.id,
@@ -31,6 +32,7 @@ class Report {
     this.heading,
     this.headingLabel = '',
     this.photoMetadata = const [],
+    this.decibelLevel,
   });
 
   factory Report.fromFirestore(DocumentSnapshot doc) {
@@ -55,6 +57,7 @@ class Report {
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList() ??
           [],
+      decibelLevel: (data['decibelLevel'] as num?)?.toDouble(),
     );
   }
 
@@ -73,6 +76,7 @@ class Report {
       if (heading != null) 'heading': heading,
       'headingLabel': headingLabel,
       'photoMetadata': photoMetadata,
+      if (decibelLevel != null) 'decibelLevel': decibelLevel,
     };
   }
 }

@@ -16,6 +16,7 @@ Aplicação móvel Flutter para denúncia de problemas urbanos, desenvolvida no 
 - Localização GPS automática com conversão para morada legível
 - **Bússola em tempo real** — orientação visível durante o preenchimento
 - Cada fotografia regista a sua própria localização GPS e orientação no momento em que é tirada
+- **Poluição Sonora** — ao selecionar esta categoria, a app acede ao microfone e mede o nível de ruído em tempo real (dB), com indicação visual de intensidade; o valor é guardado com a denúncia
 
 ### As Minhas Denúncias
 - Lista de todas as denúncias do utilizador autenticado
@@ -25,6 +26,7 @@ Aplicação móvel Flutter para denúncia de problemas urbanos, desenvolvida no 
 ### Detalhe da Denúncia
 - Visualização de todas as fotografias da denúncia
 - Por cada fotografia: orientação (bússola) e coordenadas GPS registadas no momento da captura
+- Para denúncias de **Poluição Sonora**: nível de decibéis registado, com cor indicativa de intensidade (verde / amarelo / laranja / vermelho)
 
 ### Mapa
 - Mapa OpenStreetMap (gratuito, sem API Key)
@@ -58,6 +60,8 @@ Aplicação móvel Flutter para denúncia de problemas urbanos, desenvolvida no 
 | Bússola | `flutter_compass` |
 | Câmara/Galeria | `image_picker` |
 | Deteção de rostos | `google_mlkit_face_detection` (on-device) |
+| Medição de ruído | `noise_meter` |
+| Permissões runtime | `permission_handler` |
 | Gráficos | `fl_chart` |
 | Estado | `provider` |
 
@@ -82,6 +86,7 @@ headingLabel    string
 status          string  (pending | in_progress | resolved)
 createdAt       timestamp
 userId          string
+decibelLevel    number?  (apenas para categoria "Poluição Sonora")
 ```
 
 ### Coleção `users`

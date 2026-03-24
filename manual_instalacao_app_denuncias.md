@@ -175,6 +175,8 @@ Dependências instaladas automaticamente:
 | `google_mlkit_face_detection` | ^0.13.2 | Deteção de rostos nas fotos (on-device) |
 | `intl` | ^0.20.2 | Formatação de datas |
 | `fl_chart` | ^1.2.0 | Gráficos estatísticos |
+| `noise_meter` | ^5.0.2 | Medição de nível sonoro via microfone (dB) |
+| `permission_handler` | ^11.3.0 | Pedido de permissões em runtime (microfone) |
 
 ---
 
@@ -267,6 +269,7 @@ O ficheiro `AndroidManifest.xml` já tem as permissões necessárias declaradas:
 - `ACCESS_COARSE_LOCATION` — GPS aproximado
 - `CAMERA` — acesso à câmara
 - `READ_MEDIA_IMAGES` — acesso à galeria (Android 13+)
+- `RECORD_AUDIO` — acesso ao microfone (medição de ruído para categoria Poluição Sonora)
 
 Não é necessário alterar o `AndroidManifest.xml`.
 
@@ -292,6 +295,7 @@ Não é necessário alterar o `AndroidManifest.xml`.
 | `status` | string | `pending` \| `in_progress` \| `resolved` |
 | `createdAt` | timestamp | Data de criação |
 | `userId` | string | ID do utilizador Firebase Auth |
+| `decibelLevel` | number *(opcional)* | Nível sonoro em dB — presente apenas em denúncias da categoria "Poluição Sonora" |
 
 #### Estrutura de `photoMetadata` (por foto)
 
@@ -383,6 +387,8 @@ Antes de correr o projeto, confirmar:
 | Bússola | `flutter_compass` |
 | Câmara/Galeria | `image_picker` |
 | Deteção de rostos | `google_mlkit_face_detection` (on-device, offline) |
+| Medição de ruído | `noise_meter` |
+| Permissões runtime | `permission_handler` |
 | Gráficos | `fl_chart` |
 | Estado | `provider` |
 
