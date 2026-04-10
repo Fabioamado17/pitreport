@@ -25,19 +25,45 @@ function formatDate(date: Date) {
   });
 }
 
+type GroupBy = "" | "rua" | "freguesia" | "concelho";
+
+const GROUP_BY_OPTIONS: { value: GroupBy; label: string }[] = [
+  { value: "", label: "Sem agrupamento" },
+  { value: "rua", label: "Agrupar por rua" },
+  { value: "freguesia", label: "Agrupar por freguesia" },
+  { value: "concelho", label: "Agrupar por concelho" },
+];
+
 /**
- * Tenta extrair o concelho a partir de um endereço geocodificado.
- * Formato típico PT: "Rua X, Localidade, Concelho, Distrito, Portugal"
- * Estratégia: dividir por vírgula, remover "Portugal" e strings vazias,
- * e devolver o penúltimo componente (normalmente o concelho).
+ * Formato típico PT (OSM): "Rua X, Freguesia, Concelho, Distrito, Portugal"
  */
-function extractConcelho(address: string): string {
-  if (!address) return "Desconhecido";
-  const parts = address
+function addressParts(address: string): string[] {
+  if (!address) return [];
+  return address
     .split(",")
     .map((p) => p.trim())
     .filter((p) => p && p.toLowerCase() !== "portugal");
+}
+
+function extractRua(address: string): string {
+  return addressParts(address)[0] ?? "Desconhecida";
+}
+
+function extractFreguesia(address: string): string {
+  const parts = addressParts(address);
+  return parts[1] ?? parts[0] ?? "Desconhecida";
+}
+
+function extractConcelho(address: string): string {
+  const parts = addressParts(address);
   return parts[parts.length - 1] ?? "Desconhecido";
+}
+
+function extractGroup(address: string, groupBy: GroupBy): string {
+  if (groupBy === "rua") return extractRua(address);
+  if (groupBy === "freguesia") return extractFreguesia(address);
+  if (groupBy === "concelho") return extractConcelho(address);
+  return "";
 }
 
 export default function ReportsPage() {
@@ -49,8 +75,8 @@ export default function ReportsPage() {
   const [filterConcelho, setFilterConcelho] = useState("");
   const [search, setSearch] = useState("");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("asc");
-  const [groupByConcelho, setGroupByConcelho] = useState(false);
-  const [collapsedConcelhos, setCollapsedConcelhos] = useState<Set<string>>(new Set());
+  const [groupBy, setGroupBy] = useState<GroupBy>("");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [updating, setUpdating] = useState<string | null>(null);
 
   useEffect(() => {
@@ -90,30 +116,29 @@ export default function ReportsPage() {
     });
   }, [reports, filterStatus, filterCategory, filterConcelho, search, sortOrder]);
 
-  // Agrupar por concelho quando o toggle está ativo
   const grouped = useMemo(() => {
-    if (!groupByConcelho) return null;
+    if (!groupBy) return null;
     const map = new Map<string, Report[]>();
     for (const r of filtered) {
-      const key = extractConcelho(r.address);
+      const key = extractGroup(r.address, groupBy);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(r);
     }
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [filtered, groupByConcelho]);
+  }, [filtered, groupBy]);
 
-  function toggleConcelho(concelho: string) {
-    setCollapsedConcelhos((prev) => {
+  function toggleGroup(key: string) {
+    setCollapsedGroups((prev) => {
       const next = new Set(prev);
-      if (next.has(concelho)) next.delete(concelho);
-      else next.add(concelho);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }
 
-  function toggleAllConcelhos(collapse: boolean) {
+  function toggleAllGroups(collapse: boolean) {
     if (!grouped) return;
-    setCollapsedConcelhos(collapse ? new Set(grouped.map(([c]) => c)) : new Set());
+    setCollapsedGroups(collapse ? new Set(grouped.map(([k]) => k)) : new Set());
   }
 
   async function handleStatusChange(id: string, status: ReportStatus) {
@@ -172,17 +197,17 @@ export default function ReportsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <h1 className="text-2xl font-bold text-navy">Denúncias</h1>
           <div className="flex items-center gap-2">
-            {groupByConcelho && grouped && (
+            {groupBy && grouped && (
               <>
                 <button
-                  onClick={() => toggleAllConcelhos(false)}
+                  onClick={() => toggleAllGroups(false)}
                   className="text-sm text-gray-500 hover:text-navy transition cursor-pointer"
                 >
                   Expandir todos
                 </button>
                 <span className="text-gray-300">|</span>
                 <button
-                  onClick={() => toggleAllConcelhos(true)}
+                  onClick={() => toggleAllGroups(true)}
                   className="text-sm text-gray-500 hover:text-navy transition cursor-pointer"
                 >
                   Colapsar todos
@@ -190,66 +215,94 @@ export default function ReportsPage() {
                 <span className="text-gray-300">|</span>
               </>
             )}
-            <button
-              onClick={() => { setGroupByConcelho((v) => !v); setCollapsedConcelhos(new Set()); }}
-              className={`text-sm font-medium px-4 py-2 rounded-lg border transition cursor-pointer ${
-                groupByConcelho
-                  ? "bg-navy text-white border-navy"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-navy hover:text-navy"
-              }`}
-            >
-              Agrupar por concelho
-            </button>
+            <div className="flex items-center gap-1">
+              <select
+                value={groupBy}
+                onChange={(e) => { setGroupBy(e.target.value as GroupBy); setCollapsedGroups(new Set()); }}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange bg-white text-gray-600 cursor-pointer"
+              >
+                {GROUP_BY_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              {groupBy && (
+                <button
+                  onClick={() => { setGroupBy(""); setCollapsedGroups(new Set()); }}
+                  title="Limpar agrupamento"
+                  className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer p-1"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Filtros */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6 flex flex-wrap gap-3">
-          <input
-            type="text"
-            placeholder="Pesquisar por título ou morada..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 min-w-48 focus:outline-none focus:ring-2 focus:ring-orange"
-          />
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange"
-          >
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange"
-          >
-            <option value="">Todas as categorias</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          <select
-            value={filterConcelho}
-            onChange={(e) => setFilterConcelho(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange"
-          >
-            <option value="">Todos os concelhos</option>
-            {concelhos.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          <select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value as "desc" | "asc")}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange"
-          >
-            <option value="desc">Mais recente primeiro</option>
-            <option value="asc">Mais antiga primeiro</option>
-          </select>
-        </div>
+        {(() => {
+          const hasActiveFilters = search.trim() || filterStatus || filterCategory || filterConcelho || sortOrder !== "desc";
+          return (
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6 flex flex-wrap gap-3">
+              <input
+                type="text"
+                placeholder="Pesquisar por título ou morada..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 min-w-48 focus:outline-none focus:ring-2 focus:ring-orange"
+              />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange"
+              >
+                {STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange"
+              >
+                <option value="">Todas as categorias</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <select
+                value={filterConcelho}
+                onChange={(e) => setFilterConcelho(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange"
+              >
+                <option value="">Todos os concelhos</option>
+                {concelhos.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as "desc" | "asc")}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange"
+              >
+                <option value="desc">Mais recente primeiro</option>
+                <option value="asc">Mais antiga primeiro</option>
+              </select>
+              {hasActiveFilters && (
+                <button
+                  onClick={() => { setSearch(""); setFilterStatus(""); setFilterCategory(""); setFilterConcelho(""); setSortOrder("desc"); }}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-500 hover:text-red-700 hover:bg-red-50 border border-red-200 rounded-lg transition cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Limpar filtros
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Contador */}
         <p className="text-sm text-gray-400 mb-3">
@@ -278,14 +331,14 @@ export default function ReportsPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {grouped
-                  ? grouped.map(([concelho, rows]) => {
-                      const isCollapsed = collapsedConcelhos.has(concelho);
+                  ? grouped.map(([groupKey, rows]) => {
+                      const isCollapsed = collapsedGroups.has(groupKey);
                       return (
                         <>
                           <tr
-                            key={`header-${concelho}`}
+                            key={`header-${groupKey}`}
                             className="bg-navy/5 cursor-pointer hover:bg-navy/10 transition-colors select-none"
-                            onClick={() => toggleConcelho(concelho)}
+                            onClick={() => toggleGroup(groupKey)}
                           >
                             <td colSpan={6} className="px-4 py-2">
                               <div className="flex items-center gap-2">
@@ -299,7 +352,7 @@ export default function ReportsPage() {
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                                 </svg>
                                 <span className="text-xs font-semibold text-navy uppercase tracking-wide">
-                                  {concelho}
+                                  {groupKey}
                                 </span>
                                 <span className="text-xs font-normal text-gray-400">
                                   ({rows.length} {rows.length === 1 ? "denúncia" : "denúncias"})
