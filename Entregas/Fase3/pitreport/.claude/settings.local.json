@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter pub:*)",
+      "Bash(cmd /c build_release.bat)",
+      "Bash(findstr /b \"version:\" pubspec.yaml)",
+      "Bash(flutter build:*)",
+      "Bash(cmd /c \"cd /d F:\\\\Mestrado\\\\appmovel\\\\pitreport\\\\pitreport && build_release.bat\" 2>&1)",
+      "Bash(cmd /c \"echo test\" 2>&1)",
+      "Bash(powershell -NoProfile -Command \"\\(Select-String -Path 'F:/Mestrado/appmovel/pitreport/pitreport/pubspec.yaml' -Pattern '^version:'\\).Line -replace '^version:\\\\s*',''\")",
+      "Bash(powershell -NoProfile -Command \"\n\\\\$version = \\(Select-String -Path 'F:/Mestrado/appmovel/pitreport/pitreport/pubspec.yaml' -Pattern '^version:'\\).Line -replace '^version:\\\\s*',''\n\\\\$src = 'F:/Mestrado/appmovel/pitreport/pitreport/build/app/outputs/flutter-apk/app-release.apk'\n\\\\$dst = \\\\\"F:/Mestrado/appmovel/pitreport/pitreport/build/app/outputs/flutter-apk/pitreport-\\\\$version.apk\\\\\"\nCopy-Item \\\\$src \\\\$dst -Force\nWrite-Host \\\\\"APK criado: pitreport-\\\\$version.apk\\\\\"\n\")",
+      "Bash(cmd /c \"start \"\" \"F:\\\\Mestrado\\\\appmovel\\\\pitreport\\\\pitreport\\\\build\\\\app\\\\outputs\\\\flutter-apk\"\" 2>&1)",
+      "Bash(powershell -NoProfile -Command \"Invoke-Item 'F:\\\\Mestrado\\\\appmovel\\\\pitreport\\\\pitreport\\\\build\\\\app\\\\outputs\\\\flutter-apk'\")",
+      "Bash(cmd /c \"rmdir /s /q \\\\\"F:\\\\Mestrado\\\\appmovel\\\\pitreport\\\\pitreport\\\\android\\\\app\\\\src\\\\main\\\\kotlin\\\\com\\\\\"\")",
+      "Bash(cmd /c \"rmdir /s /q \\\\\"F:\\\\Mestrado\\\\appmovel\\\\pitreport\\\\pitreport\\\\android\\\\app\\\\src\\\\main\\\\kotlin\\\\pt\\\\uab\\\\\"\")",
+      "Bash(where java:*)",
+      "Read(//c/Program Files/Java/**)",
+      "Read(//c/Program Files/**)",
+      "Read(//f/Mestrado/appmovel/pitreport/pitreport/$ANDROID_HOME/**)",
+      "Read(//d/flutter/**)"
+    ]
+  }
+}
